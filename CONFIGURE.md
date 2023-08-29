@@ -25,6 +25,11 @@ in a standard OS deployment location.
 By setting this `cmake` configuration option to "Release" all debug output is disabled.
 This is the default setting.
 
+In case of any problem, setting this value to "Debug" is _highly_ recommended to
+activate further warning messages. In particular, when "Debug" has been set, distinct
+[debugging capabilities](https://github.com/open-quantum-safe/oqs-provider/wiki/Debugging)
+are activated and additional setup warnings are output.
+
 ### liboqs_DIR
 
 This environment variable must be set to the location of the `liboqs` installation to be
@@ -44,6 +49,38 @@ The default value is `OFF`.
 By setting this to "ON", it can be specified to omit explicitly serializing
 the public key in a `privateKey` structure, e.g., for interoperability testing.
 The default value is `OFF`.
+
+### OQS_PROVIDER_BUILD_STATIC
+
+By setting `-DOQS_PROVIDER_BUILD_STATIC=ON` at compile-time, oqs-provider can be
+compiled as a static library (`oqs-provider.a`).
+When built as a static library, the name of the provider entrypoint is `oqs_provider_init`.
+The provider can be added using the [`OSSL_PROVIDER_add_builtin`](https://www.openssl.org/docs/man3.1/man3/OSSL_PROVIDER_add_builtin.html)
+function:
+
+```c
+#include <openssl/provider.h>
+
+// Entrypoint.
+extern OSSL_provider_init_fn oqs_provider_init;
+
+void load_oqs_provider(OSSL_LIB_CTX *libctx) {
+  int err;
+
+  if (OSSL_PROVIDER_add_builtin(libctx, "oqsprovider", oqs_provider_init) == 1) {
+    if (OSSL_PROVIDER_load(libctx, "oqsprovider") == 1) {
+      fputs("successfully loaded `oqsprovider`.", stderr);
+    } else {
+      fputs("failed to load `oqsprovider`", stderr);
+    }
+  } else {
+    fputs("failed to add the builtin provider `oqsprovider`", stderr);
+  }
+}
+```
+
+> **Warning**
+> `OQS_PROVIDER_BUILD_STATIC` and `BUILD_SHARED_LIBS` are mutually exclusive.
 
 ## Convenience build script options
 
@@ -106,7 +143,7 @@ performed by default but can be manually enabled in the script `scripts/runtests
 
 ### OPENSSL_CONF
 
-This test environment variable can be used to instruct `openssl` to use a 
+This test environment variable can be used to instruct `openssl` to use a
 configuration file from a non-standard location. Setting this value also
 disables the automation logic built into `runtests.sh`, thus requiring
 knowledge of `openssl` operations when setting it.

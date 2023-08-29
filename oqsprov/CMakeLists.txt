@@ -31,7 +31,13 @@ set(PROVIDER_SOURCE_FILES
 set(PROVIDER_HEADER_FILES
   oqs_prov.h oqs_endecoder_local.h
 )
-add_library(oqsprovider MODULE ${PROVIDER_SOURCE_FILES})
+
+set(OQS_LIBRARY_TYPE MODULE)
+if(OQS_PROVIDER_BUILD_STATIC)
+  set(OQS_LIBRARY_TYPE STATIC)
+endif()
+
+add_library(oqsprovider ${OQS_LIBRARY_TYPE} ${PROVIDER_SOURCE_FILES})
 if (USE_ENCODING_LIB)
   add_dependencies(oqsprovider encoder)
 endif()
@@ -52,29 +58,31 @@ set_target_properties(oqsprovider
     # For Windows DLLs
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-if (APPLE)
-  # OpenSSL looks for `.dylib` files on XNU-based platforms.
-  # Because `MODULE` writes to a `.so` file by default, we must explicitely
-  # set the suffix here.
-  set_target_properties(oqsprovider
-    PROPERTIES
-    SUFFIX ".dylib"
-  )
+if (NOT OQS_PROVIDER_BUILD_STATIC)
+  if (APPLE)
+    # OpenSSL looks for `.dylib` files on XNU-based platforms.
+    # Because `MODULE` writes to a `.so` file by default, we must explicitely
+    # set the suffix here.
+    set_target_properties(oqsprovider
+      PROPERTIES
+      SUFFIX ".dylib"
+    )
+  endif()
+
+  if (CYGWIN OR MSVC)
+    # OpenSSL looks for `.dll` files on Windows platforms.
+    # Because `MODULE` writes to a `.so` file by default, we must explicitely
+    # set the suffix here.
+    set_target_properties(oqsprovider
+      PROPERTIES
+      SUFFIX ".dll"
+    )
+  endif()
 endif()
 
-if (CYGWIN OR MSVC)
-  # OpenSSL looks for `.dll` files on Windows platforms.
-  # Because `MODULE` writes to a `.so` file by default, we must explicitely
-  # set the suffix here.
-  set_target_properties(oqsprovider
-    PROPERTIES
-    SUFFIX ".dll"
-  )
-endif()
-
-target_link_libraries(oqsprovider OQS::oqs ${OPENSSL_CRYPTO_LIBRARY} ${OQS_ADDL_SOCKET_LIBS})
+target_link_libraries(oqsprovider PUBLIC OQS::oqs ${OPENSSL_CRYPTO_LIBRARY} ${OQS_ADDL_SOCKET_LIBS})
 if (USE_ENCODING_LIB)
-  target_link_libraries(oqsprovider qsc_key_encoder)
+  target_link_libraries(oqsprovider PUBLIC qsc_key_encoder)
   target_include_directories(oqsprovider PRIVATE ${encoder_LIBRARY_INCLUDE})
 endif()
 install(TARGETS oqsprovider
@@ -87,3 +95,6 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, openssl (>= 3.0.0), liboqs (>= 0.8.0)")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "www.openquantumsafe.org")
 include(CPack)
 
+if (OQS_PROVIDER_BUILD_STATIC)
+  targets_set_static_provider(oqsprovider)
+endif()
